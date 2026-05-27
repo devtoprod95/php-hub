@@ -1,0 +1,52 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "8074:8074"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf
+      - .:/var/www/html
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - php74
+      - php82
+      - php83
+
+  # 2. PHP 7.4
+  php74:
+    build: ./php74
+    container_name: php74
+    restart: always
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - ./php74/php.ini:/usr/local/etc/php/php.ini
+      - ./php74:/var/www/html
+
+  # 3. PHP 8.2
+  php82:
+    build: ./php82
+    container_name: php82
+    restart: always
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - ./php82/php.ini:/usr/local/etc/php/php.ini
+      - ./php82:/var/www/html
+
+  # 4. PHP 8.3
+  php83:
+    build: ./php83
+    container_name: php83
+    restart: always
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - ./php83/php.ini:/usr/local/etc/php/php.ini
+      - ./php83:/var/www/html
