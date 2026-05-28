@@ -7,6 +7,11 @@ services:
       - "8082:8082"
       - "8083:8083"
       - "8084:8084"
+
+      # ⭐ Swoole 웹소켓 진입용 외부 포트 추가
+      - "9574:9574"  # PHP 7.4 웹소켓용
+      - "9582:9582"  # PHP 8.2 웹소켓용
+      - "9583:9583"  # PHP 8.3 웹소켓용
     environment:
       - TZ=Asia/Seoul
     volumes:
@@ -23,6 +28,8 @@ services:
     build: ./php74
     container_name: php74
     restart: always
+    expose:
+      - "9574"
     environment:
       - TZ=Asia/Seoul
     volumes:
@@ -34,6 +41,8 @@ services:
     build: ./php82
     container_name: php82
     restart: always
+    expose:
+      - "9582"
     environment:
       - TZ=Asia/Seoul
     volumes:
@@ -45,6 +54,8 @@ services:
     build: ./php83
     container_name: php83
     restart: always
+    expose:
+      - "9583"
     environment:
       - TZ=Asia/Seoul
     volumes:

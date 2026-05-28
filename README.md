@@ -23,10 +23,11 @@
 
 ## 목차
 
-1. [mkcert 설치 (WSL 우분투 터미널)](#1-mkcert-설치-wsl-우분투-터미널)
-2. [로컬 인증서 발급 (WSL 우분투 터미널)](#2-로컬-인증서-발급-wsl-우분투-터미널)
+1. [mkcert 설치](#1-mkcert-설치-wsl-우분투-터미널)
+2. [로컬 인증서 발급](#2-로컬-인증서-발급-wsl-우분투-터미널)
 3. [Windows 브라우저에 신뢰 등록](#3-windows-브라우저에-신뢰-등록-자물쇠-필수)
 4. [컨테이너 올리기](#4-컨테이너-올리기)
+5. [트러블슈팅](#5-트러블슈팅)
 
 ---
 
@@ -47,8 +48,15 @@ sudo curl -Lo /usr/local/bin/mkcert \
 sudo chmod +x /usr/local/bin/mkcert
 
 # 내 로컬 환경을 인증 기관(CA)으로 등록 — 처음 한 번만 하면 됩니다
-sudo mkcert -install
+# ⚠️ sudo 없이 실행해야 합니다 (아래 주의사항 참고)
+mkcert -install
 ```
+
+> ⚠️ **`sudo mkcert -install` 절대 금지**
+>
+> `sudo`로 실행하면 `root` 계정의 CA가 별도로 생성됩니다.
+> 이후 인증서 발급도 `root` CA로 서명되어 브라우저가 신뢰하지 않습니다.
+> 설치부터 발급까지 **모든 mkcert 명령은 일반 유저로** 실행하세요.
 
 ---
 
@@ -62,7 +70,7 @@ Nginx 컨테이너가 SSL 인증서를 읽어갈 폴더를 만들고, `localhost
 mkdir -p ~/platbread/nginx/ssl
 cd ~/platbread/nginx/ssl
 
-# 인증서 발급
+# 인증서 발급 — sudo 없이 실행
 mkcert localhost 127.0.0.1 ::1
 ```
 
@@ -74,6 +82,17 @@ mkcert localhost 127.0.0.1 ::1
 | `localhost+2-key.pem` | SSL 개인 키 (비밀) |
 
 이 두 파일을 Nginx `default.conf`에서 `ssl_certificate` / `ssl_certificate_key`로 각각 연결해주면 됩니다.
+
+> ⚠️ **인증서 파일 권한 주의**
+>
+> `sudo`로 발급하면 파일 소유자가 `root`가 되어 nginx가 읽지 못할 수 있습니다.
+> 발급 후 소유자를 확인하고 필요시 수정합니다.
+>
+> ```bash
+> ls -la ~/platbread/nginx/ssl/
+> # 소유자가 root이면 아래 실행
+> sudo chown $USER:$USER ~/platbread/nginx/ssl/*
+> ```
 
 ---
 
@@ -110,12 +129,18 @@ mkcert -CAROOT
 3. **[찾아보기]** → 목록 맨 위 **신뢰할 수 있는 루트 인증 기관** 선택 → **확인**
 4. 설치 완료 후 **열려 있는 브라우저를 전부 끄고 다시 시작**
 
+또는 PowerShell 관리자로 한 줄로 등록할 수 있습니다.
+
+```powershell
+certutil -addstore -f "ROOT" "\\wsl$\Ubuntu\home\gom214\.local\share\mkcert\rootCA.pem"
+```
+
 ---
 
 ## 4. 컨테이너 올리기
 
 ```bash
-docker compose down && docker compose up -d
+docker compose down && docker compose up -d --build
 ```
 
 정상적으로 뜨면 `https://127.0.0.1:8082` 처럼 포트 번호로 각 PHP 버전에 바로 접근할 수 있습니다.
@@ -129,5 +154,50 @@ docker compose down && docker compose up -d
 
 ---
 
+## 5. 트러블슈팅
+
+### ❌ 인증서 등록 후에도 "주의 요함" 유지
+
+**원인 1 — CA 불일치 (`sudo` 혼용)**
+
+`mkcert -install` 또는 인증서 발급을 `sudo`로 실행하면 `root` 계정의 CA가 별도 생성됩니다.
+브라우저 인증서 상세에서 발급자를 확인했을 때 아래처럼 다른 유저명이 보이면 이 경우입니다.
+
+```
+# Windows에 등록된 CA
+gom214@DESKTOP-3HKOBLT
+
+# 실제 인증서를 서명한 CA (root로 발급한 경우)
+root@DESKTOP-3HKOBLT   ← 브라우저가 모르는 CA
+```
+
+해결 방법:
+
+```bash
+# root CA 경로 확인
+sudo mkcert -CAROOT
+
+# 일반 유저 홈으로 복사
+sudo cp $(sudo mkcert -CAROOT)/rootCA.pem ~/rootCA.pem
+sudo chown $USER:$USER ~/rootCA.pem
+```
+
+```powershell
+# PowerShell 관리자로 등록
+certutil -addstore -f "ROOT" "\\wsl$\Ubuntu\home\gom214\rootCA.pem"
+```
+
+**원인 2 — 브라우저 캐시**
+
+CA 등록 후에도 크롬이 기존 캐시를 유지해 바로 반영되지 않을 수 있습니다.
+단순 창 닫기로는 부족하므로 아래 주소로 완전 재시작합니다.
+
+```
+chrome://restart
+```
+
+---
+
 > **팀원 온보딩 시 주의.** 인증서 등록(3단계)은 각자의 PC에서 개별적으로 진행해야 합니다.
 > mkcert로 발급한 인증서는 기본 10년 유효이므로 자주 반복할 필요는 없습니다.
+> 모든 `mkcert` 명령은 반드시 **일반 유저(sudo 없이)** 로 실행하세요.

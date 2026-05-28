@@ -1,5 +1,9 @@
 {
   "intelephense.environment.phpVersion": "7.4.0",
   "php.validate.enable": false,
-  "php.suggest.basic": false
+  "php.suggest.basic": false,
+  "php.stubs": [
+    "*",
+    "swoole"
+  ]
 }
